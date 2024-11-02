@@ -159,14 +159,33 @@ class King(Piece):
 
         # Castling
         if not self.has_moved and castle_rights:
-            # Kingside castling
-            if castle_rights[self.color]['kingside']:
-                if board.board[self.row][self.col + 1] == 0 and board.board[self.row][self.col + 2] == 0:
-                    moves.append((self.row, self.col + 2))
-            # Queenside castling
-            if castle_rights[self.color]['queenside']:
-                if board.board[self.row][self.col - 1] == 0 and board.board[self.row][self.col - 2] == 0 and board.board[self.row][self.col - 3] == 0:
-                    moves.append((self.row, self.col - 2))
+            # **Check if King is currently in check**
+            if not board.is_king_in_check(self.color):
+                # Kingside castling
+                if castle_rights[self.color]['kingside']:
+                    # Ensure squares between King and Rook are empty
+                    if (board.board[self.row][self.col + 1] == 0 and 
+                        board.board[self.row][self.col + 2] == 0):
+                        # **Check if squares King passes through are not under attack**
+                        if (not board.is_square_under_attack(self.row, self.col + 1, self.color) and
+                            not board.is_square_under_attack(self.row, self.col + 2, self.color)):
+                            # **Ensure the Rook has not moved**
+                            rook = board.board[self.row][self.col + 3]
+                            if isinstance(rook, Rook) and not rook.has_moved:
+                                moves.append((self.row, self.col + 2))
+                # Queenside castling
+                if castle_rights[self.color]['queenside']:
+                    # Ensure squares between King and Rook are empty
+                    if (board.board[self.row][self.col - 1] == 0 and 
+                        board.board[self.row][self.col - 2] == 0 and 
+                        board.board[self.row][self.col - 3] == 0):
+                        # **Check if squares King passes through are not under attack**
+                        if (not board.is_square_under_attack(self.row, self.col - 1, self.color) and
+                            not board.is_square_under_attack(self.row, self.col - 2, self.color)):
+                            # **Ensure the Rook has not moved**
+                            rook = board.board[self.row][self.col - 4]
+                            if isinstance(rook, Rook) and not rook.has_moved:
+                                moves.append((self.row, self.col - 2))
 
         if avoid_check:
             moves = [move for move in moves if not board.is_in_check_after_move(self, move)]
@@ -230,6 +249,29 @@ class Board:
         fen = fen[:-1]  # Remove last slash
         fen += f" {'w' if self.turn == 'white' else 'b'} - - 0 1"  # Add turn, castling, and other FEN details
         return fen
+
+    def is_square_under_attack(self, row, col, color):
+        """
+        Check if a specific square (row, col) is under attack by any opponent's piece.
+
+        Parameters:
+            row (int): The row of the square to check.
+            col (int): The column of the square to check.
+            color (str): The color of the piece for whom the attack is being checked.
+
+        Returns:
+            bool: True if the square is under attack, False otherwise.
+        """
+        opponent_color = 'black' if color == 'white' else 'white'
+        for r in range(ROWS):
+            for c in range(COLS):
+                attacker = self.board[r][c]
+                if attacker != 0 and attacker.color == opponent_color:
+                    # Get valid moves without considering checks to see if attacker can move to (row, col)
+                    attacker_moves = attacker.get_valid_moves(self, avoid_check=False)
+                    if (row, col) in attacker_moves:
+                        return True
+        return False
         
     def draw(self, win):
         """Draw all pieces and highlight valid moves if using Pygame."""
